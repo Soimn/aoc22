@@ -103,96 +103,96 @@ section .bss
 
 section .text
 	
-	parse_u64: ; struct { int succeeded; u64 value; }  parse_u64(char* str, u64 len)
-		xor rdx, rdx              ; local_value = 0
-		xor r10, r10              ; i = 0
-		parse_u64_loop:
-		cmp r10, rsi              ; i < len
-		jge parse_u64_succeeded
+parse_u64: ; struct { int succeeded; u64 value; }  parse_u64(char* str, u64 len)
+	xor rdx, rdx              ; local_value = 0
+	xor r10, r10              ; i = 0
+	parse_u64_loop:
+	cmp r10, rsi              ; i < len
+	jge parse_u64_succeeded
 
-		movzx r11, BYTE [rdi + r10] ; str[i]
-		sub r11, 0x30               ; digit = str[i] - '0'
-		cmp r11, 10
-		jae parse_u64_failed
+	movzx r11, BYTE [rdi + r10] ; str[i]
+	sub r11, 0x30               ; digit = str[i] - '0'
+	cmp r11, 10
+	jae parse_u64_failed
 
-		imul rdx, rdx, 10           ; local_value *= 10
-		jb parse_u64_failed         ; fail on overflow, imul sets carry flag which jb jumps on
-		
-		add rdx, r11                ; local_value += digit
-		jb parse_u64_failed         ; fail on overflow, unsigned so jump on carry instead of the overflow flag
+	imul rdx, rdx, 10           ; local_value *= 10
+	jb parse_u64_failed         ; fail on overflow, imul sets carry flag which jb jumps on
+	
+	add rdx, r11                ; local_value += digit
+	jb parse_u64_failed         ; fail on overflow, unsigned so jump on carry instead of the overflow flag
 
-		inc r10
-		jmp parse_u64_loop
+	inc r10
+	jmp parse_u64_loop
 
-		parse_u64_succeeded:
-		mov eax, 1
-		; local_value is returned in rdx
-		ret
+	parse_u64_succeeded:
+	mov eax, 1
+	; local_value is returned in rdx
+	ret
 
-		parse_u64_failed:
-		mov eax, 0
-		ret
+	parse_u64_failed:
+	mov eax, 0
+	ret
 
-	print_u64: ; void print_u64(u64 n)
-		sub rsp, 32
+print_u64: ; void print_u64(u64 n)
+	sub rsp, 32
 
-		mov rax, rdi
-		mov rdi, 10
+	mov rax, rdi
+	mov rdi, 10
 
-		lea r10, [rsp + 32]
-		print_u64_div_loop:
-		mov rdx, 0
-		div rdi
-		dec r10
-		add rdx, 0x30 ; '0'
-		mov BYTE [r10], dl
-		cmp rax, 0
-		jne print_u64_div_loop
+	lea r10, [rsp + 32]
+	print_u64_div_loop:
+	mov rdx, 0
+	div rdi
+	dec r10
+	add rdx, 0x30 ; '0'
+	mov BYTE [r10], dl
+	cmp rax, 0
+	jne print_u64_div_loop
 
-		mov rax, 1
-		mov rdi, 1
-		mov rsi, r10
-		lea rdx, [rsp + 32]
-		sub rdx, r10
-		syscall
+	mov rax, 1
+	mov rdi, 1
+	mov rsi, r10
+	lea rdx, [rsp + 32]
+	sub rdx, r10
+	syscall
 
-		add rsp, 32
-		ret
+	add rsp, 32
+	ret
 
-	quicksort_u64: ; void quicksort(u64* arr, u64 len)
-		cmp rsi, 1                       ; if (len <= 1) return;
-		ja partition
-		ret
-		partition:
-		mov r10, QWORD [rdi + rsi*8 - 8] ; pivot = arr[len - 1]
-		mov rdx, 0                       ; i = 0
-		mov rcx, 0                       ; j = 0
-		partition_loop:
-		cmp rdx, rsi                     ; for (; i < len; ++i)
-		jge partition_loop_end
-		mov r11, QWORD [rdi + rdx*8]     ; current = arr[i]
-		cmp r11, r10                     ; if (current <= pivot)
-		ja partition_loop_step
-		mov r8, QWORD [rdi + rcx*8]      ; tmp = arr[j]
-		mov QWORD [rdi + rcx*8], r11     ; arr[j] = current
-		mov QWORD [rdi + rdx*8], r8      ; arr[i] = tmp
-		inc rcx                          ; j += 1
-		partition_loop_step:
-		inc rdx
-		jmp partition_loop
-		partition_loop_end:
-		sub rsp, 0x20
-		mov QWORD [rsp + 24], rdi
-		mov QWORD [rsp + 16], rsi
-		mov QWORD [rsp +  8], rcx
-		mov rdi, rdi                     ; arr = &arr[0]
-		lea rsi, [rcx - 1]               ; len = j - 1
-		call quicksort_u64
-		mov rdi, QWORD [rsp + 24]
-		mov rsi, QWORD [rsp + 16]
-		mov rcx, QWORD [rsp +  8]
-		lea rdi, QWORD [rdi + rcx*8]     ; arr = &arr[j]
-		sub rsi, rcx                     ; len = len - j
-		call quicksort_u64
-		add rsp, 0x20
-		ret
+quicksort_u64: ; void quicksort(u64* arr, u64 len)
+	cmp rsi, 1                       ; if (len <= 1) return;
+	ja partition
+	ret
+	partition:
+	mov r10, QWORD [rdi + rsi*8 - 8] ; pivot = arr[len - 1]
+	mov rdx, 0                       ; i = 0
+	mov rcx, 0                       ; j = 0
+	partition_loop:
+	cmp rdx, rsi                     ; for (; i < len; ++i)
+	jge partition_loop_end
+	mov r11, QWORD [rdi + rdx*8]     ; current = arr[i]
+	cmp r11, r10                     ; if (current <= pivot)
+	ja partition_loop_step
+	mov r8, QWORD [rdi + rcx*8]      ; tmp = arr[j]
+	mov QWORD [rdi + rcx*8], r11     ; arr[j] = current
+	mov QWORD [rdi + rdx*8], r8      ; arr[i] = tmp
+	inc rcx                          ; j += 1
+	partition_loop_step:
+	inc rdx
+	jmp partition_loop
+	partition_loop_end:
+	sub rsp, 0x20
+	mov QWORD [rsp + 24], rdi
+	mov QWORD [rsp + 16], rsi
+	mov QWORD [rsp +  8], rcx
+	mov rdi, rdi                     ; arr = &arr[0]
+	lea rsi, [rcx - 1]               ; len = j - 1
+	call quicksort_u64
+	mov rdi, QWORD [rsp + 24]
+	mov rsi, QWORD [rsp + 16]
+	mov rcx, QWORD [rsp +  8]
+	lea rdi, QWORD [rdi + rcx*8]     ; arr = &arr[j]
+	sub rsi, rcx                     ; len = len - j
+	call quicksort_u64
+	add rsp, 0x20
+	ret
