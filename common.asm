@@ -103,7 +103,7 @@ section .bss
 
 section .text
 	
-parse_u64: ; struct { int succeeded; u64 value; }  parse_u64(char* str, u64 len)
+parse_u64: ; struct { int succeeded; u64 value; }  parse_u64(char* str, i64 len)
 	xor rdx, rdx              ; local_value = 0
 	xor r10, r10              ; i = 0
 	parse_u64_loop:
@@ -131,6 +131,37 @@ parse_u64: ; struct { int succeeded; u64 value; }  parse_u64(char* str, u64 len)
 
 	parse_u64_failed:
 	mov eax, 0
+	ret
+
+; -1 is passed as value_len on failing to parse the number (overflow)
+eat_u64: ; struct { i64 value_len; u64 value; }  eat_u64(char* str, i64 len)
+	xor rdx, rdx                ; local_value = 0
+	xor r10, r10                ; i = 0
+	eat_u64_loop:
+	cmp r10, rsi                ; i < len
+	jge eat_u64_succeeded
+
+	movzx r11, BYTE [rdi + r10] ; str[i]
+	sub r11, 0x30               ; digit = str[i] - '0'
+	cmp r11, 10
+	jae eat_u64_succeeded
+
+	imul rdx, rdx, 10           ; local_value *= 10
+	jb eat_u64_failed           ; fail on overflow, imul sets carry flag which jb jumps on
+	
+	add rdx, r11                ; local_value += digit
+	jb eat_u64_failed           ; fail on overflow, unsigned so jump on carry instead of the overflow flag
+
+	inc r10
+	jmp eat_u64_loop
+
+	eat_u64_succeeded:
+	mov eax, r10d
+	; local_value is returned in rdx
+	ret
+
+	eat_u64_failed:
+	mov eax, -1
 	ret
 
 print_u64: ; void print_u64(u64 n)
@@ -195,4 +226,26 @@ quicksort_u64: ; void quicksort(u64* arr, u64 len)
 	sub rsi, rcx                     ; len = len - j
 	call quicksort_u64
 	add rsp, 0x20
+	ret
+
+eat_whitespace: ; struct { u64 eat_len; } eat_whitespace(char* str, i64 len)
+	xor r10, r10
+	eat_whitespace_loop:
+	cmp r10, rsi
+	jge eat_whitespace_loop_end
+
+	movzx r11, BYTE [rdi + r10]
+	sub r11, 9
+	cmp r11, 5
+	setb r8b
+	cmp r11, 11
+	setb r9b
+	or r8b, r9b
+	cmp r8b, 1
+	jne eat_whitespace_loop_end
+	inc r10
+	jmp eat_whitespace_loop
+	eat_whitespace_loop_end:
+
+	mov eax, r10d
 	ret
