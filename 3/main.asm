@@ -9,15 +9,18 @@ _start:
 	mov rdi, [p1input]
 	call read_input_file
 
-	sub rsp, 0x40
-	mov QWORD [rsp + 0x30], 0               ; 0x30 priority sum
-	                                        ; 0x28 second mask
-	                                        ; 0x20 first mask
-	                                        ; 0x18 second index
-	                                        ; 0x10 first index
+	sub rsp, 0x50
+	mov QWORD [rsp + 0x48], 0                  ; 0x40 three line priority sum
+	mov QWORD [rsp + 0x40], 0                  ; 0x40 three line index
+	mov QWORD [rsp + 0x38], 0xFFFFFFFFFFFFFFFF ; 0x38 three line mask
+	mov QWORD [rsp + 0x30], 0                  ; 0x30 priority sum
+	                                           ; 0x28 second mask
+	                                           ; 0x20 first mask
+	                                           ; 0x18 second index
+	                                           ; 0x10 first index
 	mov r12, QWORD [input_file_buffer_size]
-	mov QWORD [rsp + 0x8], r12              ; 0x8 input file buffer_size
-	mov QWORD [rsp + 0x0], 26               ; 0x0 constant 26
+	mov QWORD [rsp + 0x8], r12                 ; 0x8 input file buffer_size
+	mov QWORD [rsp + 0x0], 26                  ; 0x0 constant 26
 
 	mov rbp, input_file_buffer
 	mov rbx, 0
@@ -96,6 +99,7 @@ _start:
 	jmp mask_loop
 	mask_loop_end:
 
+	; part 1
 	mov r12, QWORD [rsp + 0x20]
 	mov r13, QWORD [rsp + 0x28]
 	and r12, r13
@@ -105,9 +109,17 @@ _start:
 	add r13, r12
 	mov QWORD [rsp + 0x30], r13
 
+	; part 2
+	mov r12, QWORD [rsp + 0x20]
+	mov r13, QWORD [rsp + 0x28]
+	or r12, r13
+	mov r13, QWORD [rsp + 0x38]
+	and r13, r12
+	mov QWORD [rsp + 0x38], r13
+
 	eat_whitespace:
 	cmp rbx, QWORD [rsp + 0x8]
-	jae line_loop_end
+	jae eat_whitespace_end
 	xor r14, r14
 	movzx r15, BYTE [rbp + rbx]
 	sub r15, 0x9               ; map ['\t','\r'], which is [0x9,0xD], to [0x0,0x4], this makes the first 5 nonnegative values all whitespace
@@ -121,6 +133,21 @@ _start:
 	inc rbx
 	jmp eat_whitespace
 	eat_whitespace_end:
+
+	mov r12, QWORD [rsp + 0x40]
+	inc r12
+	mov r14, 0
+	cmp r12, 3
+	cmove r12, r14
+	mov QWORD [rsp + 0x40], r12
+	jne line_loop
+	mov r12, QWORD [rsp + 0x38]
+	bsf r12, r12
+	inc r12
+	mov r13, QWORD [rsp + 0x48]
+	add r13, r12
+	mov QWORD [rsp + 0x48], r13
+	mov QWORD [rsp + 0x38], 0xFFFFFFFFFFFFFFFF
 	jmp line_loop
 	line_loop_end:
 
@@ -130,12 +157,12 @@ _start:
 	call print_u64
 	mov rdi, newline_part_2_colon
 	call print
-	mov rdi, -1
+	mov rdi, QWORD [rsp + 0x48]
 	call print_u64
 	mov rdi, newline
 	call print
 
-	add rsp, 0x40
+	add rsp, 0x50
 
 	mov rax, 60     ; sys_exit
 	mov rdi, 0      ; exit code
