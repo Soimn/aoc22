@@ -1,5 +1,7 @@
 section .text
 
+; NOTE: All the eat_* return eaten length as 32bit, I don't expect these to be used on > 4GB files
+
 strlen: ; u64 strlen(char* str)
 	xor rax, rax
 
@@ -24,6 +26,15 @@ print: ; void print(char* str)
 	add rsp, 0x10
 
 	mov rdx, rax      ; str length
+	mov rsi, rdi      ; str
+	mov rdi, 1        ; stdout
+	mov rax, 1        ; sys_write
+	syscall
+
+	ret
+
+print_w_len: ; rdi - str, rsi - len
+	mov rdx, rsi      ; str length
 	mov rsi, rdi      ; str
 	mov rdi, 1        ; stdout
 	mov rax, 1        ; sys_write
@@ -238,8 +249,8 @@ eat_whitespace: ; struct { u64 eat_len; } eat_whitespace(char* str, i64 len)
 	sub r11, 9
 	cmp r11, 5
 	setb r8b
-	cmp r11, 11
-	setb r9b
+	cmp r11, 0x17
+	sete r9b
 	or r8b, r9b
 	cmp r8b, 1
 	jne eat_whitespace_loop_end
@@ -248,4 +259,88 @@ eat_whitespace: ; struct { u64 eat_len; } eat_whitespace(char* str, i64 len)
 	eat_whitespace_loop_end:
 
 	mov eax, r10d
+	ret
+
+eat_whitespace_until_newline: ; struct { u64 eat_len; } eat_whitespace(char* str, i64 len)
+	xor r10, r10
+	eat_whitespace_until_newline_loop:
+	cmp r10, rsi
+	jge eat_whitespace_until_newline_loop_end
+
+	movzx r11, BYTE [rdi + r10]
+	sub r11, 9
+	cmp r11, 5
+	setb r8b
+	cmp r11, 0x17
+	sete r9b
+	or r8b, r9b
+	cmp r11, 1
+	setne r9b
+	and r8b, r9b
+	cmp r8b, 1
+	jne eat_whitespace_until_newline_loop_end
+	inc r10
+	jmp eat_whitespace_until_newline_loop
+	eat_whitespace_until_newline_loop_end:
+
+	mov eax, r10d
+	ret
+
+eat_until_newline: ; rdi - str, rsi - len -> eax eaten_len
+	xor r10, r10
+	eat_until_newline_loop:
+	cmp r10, rsi
+	jge eat_until_newline_loop_end
+	movzx r11, BYTE [rdi + r10]
+	cmp r11, 0xA
+	je eat_until_newline_loop_end
+	inc r10
+	jmp eat_until_newline_loop
+	eat_until_newline_loop_end:
+
+	mov eax, r10d
+	ret
+
+is_alpha:
+	mov r10, rdi
+	and rdi, 0x1F
+	dec rdi
+	cmp rdi, 0x1A
+	setb dl
+	shr r10, 6
+	add r10b, dl
+	cmp r10b, 2
+	sete r10b
+	movzx rax, r10b
+	ret
+
+is_digit:
+	sub rdi, 0x30
+	cmp rdi, 0xA
+	setb al
+	movzx rax, al
+	ret
+
+zero: ; rdi - ptr, rsi - size
+	xor r10, r10
+	zero_loop:
+	cmp r10, rsi
+	jge zero_loop_end
+	mov BYTE [rdi + r10], 0
+	inc r10
+	jmp zero_loop
+	zero_loop_end:
+	ret
+
+copy: ; rdi - src, rsi - dst, rcx - len
+	lea r10, [rdi + rcx]
+	copy_loop:
+	cmp rdi, r10
+	jge copy_loop_end
+	mov r11b, BYTE [rdi]
+	mov BYTE [rsi], r11b
+	inc rdi
+	inc rsi
+	jmp copy_loop
+	copy_loop_end:
 	ret
